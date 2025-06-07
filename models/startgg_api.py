@@ -18,14 +18,10 @@ class StartGGApi:
             try:
                 response = requests.post(API_URL, headers=HEADERS, json={"query": query, "variables": variables})
                 status_code = response.status_code
-                print(f"Request Status: {status_code}")  # Muestra el código de estado
-                if status_code != 200:
-                    print("Request failed, retrying...")  # Si la solicitud falla, muestra un mensaje
-                    time.sleep(1)  # Espera antes de reintentar
+                time.sleep(0.3)
             except Exception as e:
                 print(f"Error during request: {e}")
-                time.sleep(1)  # Espera antes de reintentar
-        print("Request successful!")
+                time.sleep(1)
         return response
 
     def get_event_info(self, slug):
@@ -37,18 +33,14 @@ class StartGGApi:
             tournament {
               name
               startAt
-              images {
-                url  # Obtiene la URL de la imagen de portada
-              }
+              images { url }
             }
             startAt
           }
         }
         """
-        print(f"Fetching event information for slug: {slug}")  # Debugging: Imprimir slug
         response = self.safe_post(query, {"slug": slug})
         data = response.json()
-        print(f"Event Data: {data}")  # Debugging: Imprimir los datos recibidos de la API
         
         try:
             event = data["data"]["event"]
@@ -57,8 +49,8 @@ class StartGGApi:
             return {
                 "event_id": event["id"],
                 "tournament_name": event["tournament"]["name"],
-                "startAt": event["startAt"],  # Fecha de inicio del torneo
-                "image_url": event["tournament"]["images"][0]["url"] if event["tournament"]["images"] else None,  # URL de la imagen del torneo
+                "startAt": event["startAt"],
+                "image_url": event["tournament"]["images"][0]["url"] if event["tournament"]["images"] else None
             }
         except Exception:
             raise HTTPException(status_code=404, detail="Evento no encontrado")
@@ -68,15 +60,11 @@ class StartGGApi:
         query EventEntrants($eventId: ID!, $page: Int!, $perPage: Int!) {
           event(id: $eventId) {
             entrants(query: {page: $page, perPage: $perPage}) {
-              pageInfo {
-                totalPages
-              }
+              pageInfo { totalPages }
               nodes {
                 participants {
                   gamerTag
-                  player {
-                    id
-                  }
+                  player { id }
                 }
               }
             }
@@ -89,10 +77,8 @@ class StartGGApi:
 
         while True:
             variables = {"eventId": event_id, "page": page, "perPage": per_page}
-            print(f"Fetching participants: Page {page}")  # Debugging: Imprimir la página que se está buscando
             response = self.safe_post(query, variables)
             data = response.json()
-            print(f"Participants Data: {data}")  # Debugging: Imprimir los datos recibidos de la API
 
             for entrant in data["data"]["event"]["entrants"]["nodes"]:
                 for p in entrant["participants"]:
@@ -102,7 +88,6 @@ class StartGGApi:
                     })
 
             total_pages = data["data"]["event"]["entrants"]["pageInfo"]["totalPages"]
-            print(f"Total Pages: {total_pages}")  # Debugging: Imprimir el número total de páginas
             if page >= total_pages:
                 break
             page += 1
@@ -119,42 +104,50 @@ class StartGGApi:
                 displayScore
                 event {
                   name
-                  tournament {
-                    name
-                    startAt
-                  }
+                  videogame { id }
+                  tournament { name startAt }
                 }
+                slots { entrant { name } }
               }
-              pageInfo {
-                totalPages
-              }
+              pageInfo { totalPages }
             }
           }
         }
         """
-        pages_to_fetch = 2  # Número de páginas a obtener
+        pages_to_fetch = 2
         sets = []
 
-        # Itera por las primeras 2 páginas
         for page in range(1, pages_to_fetch + 1):
             variables = {"playerId": player_id, "pagenum": page}
-            print(f"Fetching sets for player {player_id}: Page {page}")  # Debugging: Imprimir el jugador y la página
             response = self.safe_post(query, variables)
             data = response.json()
-            print(f"Player Sets Data: {data}")  # Debugging: Imprimir los datos recibidos de la API
 
             player_data = data.get("data", {}).get("player")
             if not player_data or "sets" not in player_data:
-                print(f"No sets found for player {player_id}.")  # Debugging: Si no hay sets, lo notificamos
-                return []  # Si no hay sets, retornamos una lista vacía
+                return []
 
             player_sets = player_data["sets"]
             for set_data in player_sets["nodes"]:
-                if set_data["event"]["tournament"]["name"] == tournament_name:
-                    sets.append({
-                        "displayScore": set_data["displayScore"],
-                        "event": set_data["event"]["name"],
-                        "tournament": set_data["event"]["tournament"]["name"]
-                    })
+                if set_data["event"]["videogame"]["id"] != 1386:
+                    continue
 
+                if set_data["event"]["tournament"]["name"] == tournament_name:
+                    display_score = set_data.get("displayScore", "")
+                    score_parts = display_score.replace(" ", "").split("-")
+                    
+                    if len(score_parts) == 2 and len(set_data.get("slots", [])) == 2:
+                        try:
+                            p1_score = int(score_parts[0][-1])
+                            p2_score = int(score_parts[1][-1])
+                        except ValueError:
+                            continue
+
+                        sets.append({
+                            "player1_name": set_data["slots"][0]["entrant"]["name"],
+                            "player1_score": p1_score,
+                            "player2_name": set_data["slots"][1]["entrant"]["name"],
+                            "player2_score": p2_score,
+                            "event": set_data["event"]["name"],
+                            "tournament": set_data["event"]["tournament"]["name"]
+                        })
         return sets
