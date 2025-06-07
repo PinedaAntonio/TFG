@@ -1,4 +1,4 @@
-from models.startgg_api import StartGGApi
+from models.tournament_model import StartGGApi
 
 class TournamentService:
     def __init__(self):
