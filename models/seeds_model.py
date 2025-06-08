@@ -59,6 +59,5 @@ class SeedsModel:
                 gamerTag = participant['gamerTag']
                 seeds.append({"seedNum": seedNum, "gamerTag": gamerTag})
 
-        # Ordenamos por seedNum
         seeds = sorted(seeds, key=lambda x: x['seedNum'])
         return seeds

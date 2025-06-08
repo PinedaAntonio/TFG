@@ -4,10 +4,9 @@ from controllers import tournament_controller, player_controller, report_control
 
 app = FastAPI()
 
-# Configurar CORS para permitir peticiones desde localhost:5173
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Permite solo las peticiones desde el frontend
+    allow_origins=["*"],  # Permite solo las peticiones desde el frontend
     allow_credentials=True,
     allow_methods=["*"],  # Permite cualquier método (GET, POST, etc.)
     allow_headers=["*"],  # Permite cualquier cabecera
