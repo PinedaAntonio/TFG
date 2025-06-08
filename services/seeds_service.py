@@ -13,7 +13,6 @@ class SeedsService:
         wb = Workbook()
         ws = wb.active
 
-        # Nombre limpio del archivo
         try:
             nombre_torneo = slug.split('/')[1]
         except:
